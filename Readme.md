@@ -4,6 +4,11 @@ When you have LinkedIn premium you can see the applicant count for a job below t
 
 You can even set custom limit for the applicant count. If the applicant count is greater than the limit, the count will be shown in red color. By default the limit is set to 300.
 
+## Screenshots
+![alt Applicant Count less than limi](ApplicantCountLessThanLimit.png "Applicant count less than limit")
+
+![alt Applicant Count greater than limit](ApplicantCountGreaterThanLimit.png "Applicant count greater than limit")
+
 ## Installation
 
 1. Clone the repository

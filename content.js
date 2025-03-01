@@ -2,6 +2,9 @@
   // Default limit if not set by the user.
   const DEFAULT_LIMIT = 300;
 
+  // This variable holds the timer ID for hiding the popup.
+  let popupHideTimer = null;
+
   // Function to get or create the popup element.
   function getOrCreatePopup() {
     let popup = document.getElementById("applicantCountPopup");
@@ -18,17 +21,30 @@
       popup.style.fontWeight = "bold";
       popup.style.zIndex = "9999";
       popup.style.borderRadius = "5px";
+      // Initially display the popup.
+      popup.style.display = "block";
       document.body.appendChild(popup);
     }
     return popup;
   }
 
   // Function to update the popup with the applicant count and proper background color.
+  // Also resets the timer which will hide the popup after 5 seconds if no new update occurs.
   function updatePopup(count, limit) {
     const popup = getOrCreatePopup();
+    // Make sure the popup is visible.
+    popup.style.display = "block";
     popup.textContent = `Applicant Count: ${count}`;
     // Green if below limit; red when the number is greater than or equal to the limit.
     popup.style.backgroundColor = count < limit ? "green" : "red";
+
+    // Clear any existing hide timer and set a new one.
+    if (popupHideTimer) {
+      clearTimeout(popupHideTimer);
+    }
+    popupHideTimer = setTimeout(() => {
+      popup.style.display = "none";
+    }, 5000);
   }
 
   // Reads the limit value from chrome.storage.sync.
