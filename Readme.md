@@ -9,7 +9,10 @@ You can even set custom limit for the applicant count. If the applicant count is
 
 ![alt Applicant Count greater than limit](ApplicantCountGreaterThanLimit.png "Applicant count greater than limit")
 
-## Installation
+## Chrome Webstore Installation
+[https://chromewebstore.google.com/detail/linkedin-job-applicant-mo/cbkmimndifbfolmgfpcdkiejenmndoeb](https://chromewebstore.google.com/detail/linkedin-job-applicant-mo/cbkmimndifbfolmgfpcdkiejenmndoeb)
+
+## Dev Installation
 
 1. Clone the repository
 2. Open Chrome and go to `chrome://extensions/`
