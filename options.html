@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta charset="UTF-8" />
-        <title>LinkedIn Job Monitor Options</title>
+        <title>LinkedIn Job Count Options</title>
         <style>
             body {
                 font-family: Arial, sans-serif;
@@ -29,8 +29,11 @@
         </style>
     </head>
     <body>
-        <h1>Extension Options</h1>
-        <label for="limitInput">Applicant Limit:</label>
+        <h1>LinkedIn Application Count Filter Configuration</h1>
+        <p>Jobs with more applicants than this number will be highlighted red.</p>
+        <p>To change this right click on extension and select "Options".</p>
+        <br />
+        <label for="limitInput" style="font-size: 20px">Applicant Limit:</label>
         <input type="number" id="limitInput" placeholder="Enter applicant limit" />
         <br />
         <button id="saveBtn">Save</button>

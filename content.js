@@ -1,129 +1,237 @@
-// Retrieve the stored JSESSIONID cookie value from storage.
+// JSESSIONID cache
+let jsessionid = null;
+
+// Fetch the JSESSIONID from storage once on load
 chrome.storage.sync.get("jsessionid", function (result) {
   if (result.jsessionid) {
-    console.log("Retrieved JSESSIONID from storage:", result.jsessionid);
-    // Use the cookie value as needed. For example, you might want to include it in requests.
+    console.log("Retrieved JSESSIONID from storage");
+    jsessionid = result.jsessionid;
   } else {
-    console.log("No JSESSIONID found in storage.");
+    console.log("No JSESSIONID found in storage");
   }
 });
 
-
-// Default limit if not set by the user.
+// Constants
 const DEFAULT_LIMIT = 300;
+const QUERY_ID = "voyagerJobsDashJobPostingDetailSections.c07b0d44515bceba51a9b73c01b0cecb";
 
-// This variable holds the timer ID for hiding the popup.
-let popupHideTimer = null;
+// Cache for applicant counts
+const applicantCountCache = {};
 
-// Function to get or create the popup element.
-function getOrCreatePopup() {
-  let popup = document.getElementById("applicantCountPopup");
-  if (!popup) {
-    popup = document.createElement("div");
-    popup.id = "applicantCountPopup";
-    // Styling for the popup positioned at the top right.
-    popup.style.position = "fixed";
-    popup.style.top = "10px";
-    popup.style.right = "10px";
-    popup.style.padding = "10px 20px";
-    popup.style.color = "#fff";
-    popup.style.fontSize = "18px";
-    popup.style.fontWeight = "bold";
-    popup.style.zIndex = "9999";
-    popup.style.borderRadius = "5px";
-    // Initially display the popup.
-    popup.style.display = "block";
-    document.body.appendChild(popup);
+/**
+ * Fetches the applicant count for a specific job ID
+ */
+async function fetchApplicantCount(jobId) {
+  if (!jsessionid) {
+    console.log("JSESSIONID is not available");
+    return null;
   }
-  return popup;
-}
 
-// Function to update the popup with the applicant count and proper background color.
-// Also resets the timer which will hide the popup after 5 seconds if no new update occurs.
-function updatePopup(count, limit) {
-  const popup = getOrCreatePopup();
-  // Make sure the popup is visible.
-  popup.style.display = "block";
-  popup.textContent = `Applicant Count: ${count}`;
-  // Green if below limit; red when the number is greater than or equal to the limit.
-  popup.style.backgroundColor = count < limit ? "green" : "red";
+  const jobPostingUrn = encodeURIComponent(`urn:li:fsd_jobPosting:${jobId}`);
+  const variables = `(cardSectionTypes:List(JOB_APPLICANT_INSIGHTS),jobPostingUrn:${jobPostingUrn},includeSecondaryActionsV2:true)`;
+  const url = `https://www.linkedin.com/voyager/api/graphql?variables=${variables}&queryId=${QUERY_ID}`;
 
-  // Clear any existing hide timer and set a new one.
-  if (popupHideTimer) {
-    clearTimeout(popupHideTimer);
-  }
-  popupHideTimer = setTimeout(() => {
-    popup.style.display = "none";
-  }, 5000);
-}
-
-// Reads the limit value from chrome.storage.sync.
-function fetchLimit(callback) {
-  chrome.storage.sync.get(["limit"], function (result) {
-    let limit = result.limit;
-    if (!limit || isNaN(limit)) {
-      limit = DEFAULT_LIMIT;
-    } else {
-      limit = Number(limit);
-    }
-    callback(limit);
-  });
-}
-
-// Checks for the target element and updates the popup if found.
-function checkAndUpdate(limit) {
-  const target = document.querySelector(".jobs-premium-applicant-insights__list-num");
-  if (target) {
-    // Remove any non-digit characters.
-    const text = target.textContent.replace(/[^\d]/g, "");
-    const count = parseInt(text, 10);
-    if (!isNaN(count)) {
-      updatePopup(count, limit);
-    }
-  }
-}
-
-// Sets up a MutationObserver to continuously watch for changes.
-function setupObserver(limit) {
-  const observer = new MutationObserver(function () {
-    checkAndUpdate(limit);
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-  });
-}
-
-// Initialize the content script: fetch the limit, check the count, and start observing changes.
-fetchLimit(function (limit) {
-  checkAndUpdate(limit);
-  setupObserver(limit);
-});
-
-// Listen for messages from the options page to update the limit on the fly.
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  if (request.action === "updateLimit") {
-    fetchLimit(function (newLimit) {
-      checkAndUpdate(newLimit);
-      sendResponse({ status: "limit updated", newLimit: newLimit });
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "csrf-token": jsessionid },
+      credentials: "include"
     });
-    return true; // Indicates asynchronous response.
+    
+    const data = await response.json();
+    return data.data?.jobsDashJobPostingDetailSectionsByCardSectionTypes?.elements?.[0]
+      ?.jobPostingDetailSection?.[0]?.jobApplicantInsightsUrn?.applicantCount || 0;
+  } catch (error) {
+    console.error("Error fetching applicant count:", error);
+    return null;
+  }
+}
+
+/**
+ * Gets the user-configured limit from storage
+ */
+function getLimit() {
+  return new Promise(resolve => {
+    chrome.storage.sync.get("limit", result => {
+      const limit = Number(result.limit) || DEFAULT_LIMIT;
+      resolve(limit);
+    });
+  });
+}
+
+/**
+ * Extracts a job ID from a LinkedIn URL
+ */
+function extractJobIdFromUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    
+    // First try to get it from the query parameter
+    let jobId = urlObj.searchParams.get("currentJobId");
+    
+    // If not found, try to extract from the URL path
+    if (!jobId) {
+      const pathSegments = urlObj.pathname.split("/");
+      if (pathSegments.length > 3 && pathSegments[1] === "jobs" && pathSegments[2] === "view") {
+        jobId = pathSegments[3];
+      }
+    }
+    
+    return jobId;
+  } catch (e) {
+    console.error("Error extracting job ID:", e);
+    return null;
+  }
+}
+
+/**
+ * Creates and styles the applicant count element
+ */
+function createCountElement() {
+  const element = document.createElement("div");
+  element.className = "applicant-count-element";
+  element.style.fontSize = "12px";
+  element.style.fontWeight = "bold";
+  element.style.padding = "3px 8px";
+  element.style.borderRadius = "4px";
+  element.style.display = "inline-block";
+  element.style.margin = "4px 0";
+  element.textContent = "Fetching Applicants...";
+  return element;
+}
+
+/**
+ * Updates the count element with styling based on the applicant count
+ */
+function updateCountElement(element, count, limit) {
+  element.textContent = `Applicants: ${count}`;
+
+  if (count < limit) {
+    // Below limit styling (green)
+    element.style.backgroundColor = "#e6f7e6";
+    element.style.color = "#006400";
+    element.style.border = "1px solid #c3e6c3";
+  } else {
+    // Above limit styling (red)
+    element.style.backgroundColor = "#ffebeb";
+    element.style.color = "#cc0000";
+    element.style.border = "1px solid #ffcccc";
+  }
+}
+
+/**
+ * Adds applicant counts to job listings
+ */
+async function addApplicantCountsToListings(limit) {
+  const listItems = document.querySelectorAll(".scaffold-layout__list li.scaffold-layout__list-item");
+
+  for (const item of listItems) {
+    // Skip items that already have a count element
+    if (item.querySelector(".applicant-count-element")) {
+      continue;
+    }
+
+    const link = item.querySelector("a");
+    if (!link) continue;
+
+    const jobId = extractJobIdFromUrl(link.href);
+    if (!jobId) continue;
+
+    // Create and add the count element
+    const countElement = createCountElement();
+    item.insertAdjacentElement("afterbegin", countElement);
+
+    // Check if we have a cached count
+    if (applicantCountCache[jobId] !== undefined) {
+      updateCountElement(countElement, applicantCountCache[jobId], limit);
+      continue;
+    }
+    
+    // Fetch the applicant count with a small random delay to avoid rate limiting
+    setTimeout(async () => {
+      try {
+        const count = await fetchApplicantCount(jobId);
+        if (count !== null) {
+          applicantCountCache[jobId] = count;
+          updateCountElement(countElement, count, limit);
+        } else {
+          countElement.textContent = "Count unavailable";
+          countElement.style.backgroundColor = "#999";
+          countElement.style.color = "white";
+        }
+      } catch (e) {
+        console.error(`Error fetching count for job ${jobId}:`, e);
+        countElement.textContent = "Error fetching count";
+        countElement.style.backgroundColor = "#999";
+        countElement.style.color = "white";
+      }
+    }, 2000); // Random delay between 0-2 seconds
+  }
+}
+
+/**
+ * Sets up the MutationObserver to process job listings when the page content changes
+ */
+async function setupJobObserver() {
+  // Get the user-configured limit
+  const limit = await getLimit();
+  
+  // Create a mutation observer
+  const observer = new MutationObserver(mutations => {
+    let shouldProcess = false;
+    
+    for (const mutation of mutations) {
+      // Check if the changes affect the job list
+      if (mutation.type === "childList" || 
+         (mutation.type === "attributes" && 
+          mutation.target.closest(".scaffold-layout__list"))) {
+        shouldProcess = true;
+        break;
+      }
+    }
+    
+    if (shouldProcess) {
+      addApplicantCountsToListings(limit);
+    }
+  });
+  
+  // Process immediately if DOM is loaded, otherwise wait for DOMContentLoaded
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      addApplicantCountsToListings(limit);
+      startObserver();
+    });
+  } else {
+    addApplicantCountsToListings(limit);
+    startObserver();
+  }
+  
+  function startObserver() {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+  }
+}
+
+// Listen for messages from the options page to update the limit on the fly
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "updateLimit") {
+    getLimit().then(newLimit => {
+      // Reset all applicant count indicators
+      document.querySelectorAll(".applicant-count-element").forEach(element => {
+        element.remove();
+      });
+      
+      // Process the listings with the new limit
+      addApplicantCountsToListings(newLimit);
+      sendResponse({ status: "limit updated", newLimit });
+    });
+    return true; // Indicates asynchronous response
   }
 });
 
-function getJobElementsAsDict() {
-  const jobElements = document.querySelectorAll('[data-job-id]');
-  const jobDict = {};
-
-  jobElements.forEach(element => {
-    // Ensure the element has attributes and at least one attribute.
-    if (element.attributes.length > 0) {
-      const key = element.attributes[0].nodeValue;
-      jobDict[key] = element;
-    }
-  });
-
-  return jobDict;
-}
+// Initialize
+setupJobObserver();
