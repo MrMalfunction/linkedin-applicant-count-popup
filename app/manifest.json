@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Job Applicant Highlighter",
-  "version": "1.3",
+  "version": "1.4",
   "description": "LinkedIn Job Applicant Highlighter Chrome Extension – Enhance Your Job Search Efficiency",
   "permissions": ["storage", "cookies"],
   "background": {
@@ -17,8 +17,8 @@
   "host_permissions": ["https://www.linkedin.com/jobs/*"],
   "options_page": "options.html",
   "icons": {
-    "16": "icons/icons16.png",
     "48": "icons/icons48.png",
+    "64": "icons/icons64.png",
     "128": "icons/icons128.png"
   }
 }
