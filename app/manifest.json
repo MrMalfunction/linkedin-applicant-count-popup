@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "LinkedIn Job Applicant Highlighter",
-  "version": "1.4",
-  "description": "LinkedIn Job Applicant Highlighter Chrome Extension – Enhance Your Job Search Efficiency",
+  "name": "LinkedIn Job Insights",
+  "version": "1.5",
+  "description": "LinkedIn Job Insights – Enhance Your Job Search Efficiency",
   "permissions": ["storage", "cookies"],
   "background": {
     "service_worker": "background.js"
