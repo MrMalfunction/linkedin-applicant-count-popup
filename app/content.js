@@ -13,9 +13,41 @@ chrome.storage.sync.get("jsessionid", function (result) {
 
 // Constants
 const DEFAULT_LIMIT = 300;
+const QUERY_ID = "voyagerJobsDashJobPostingDetailSections.c07b0d44515bceba51a9b73c01b0cecb";
 
 // Cache for job details
 const jobDetailsCache = {};
+
+/**
+ * Fetches the applicant count for a specific job ID
+ */
+async function fetchApplicantCount(jobId) {
+  if (!jsessionid) {
+    console.log("JSESSIONID is not available");
+    return null;
+  }
+
+  const jobPostingUrn = encodeURIComponent(`urn:li:fsd_jobPosting:${jobId}`);
+  const variables = `(cardSectionTypes:List(JOB_APPLICANT_INSIGHTS),jobPostingUrn:${jobPostingUrn},includeSecondaryActionsV2:true)`;
+  const url = `https://www.linkedin.com/voyager/api/graphql?variables=${variables}&queryId=${QUERY_ID}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "csrf-token": jsessionid },
+      credentials: "include",
+    });
+
+    const data = await response.json();
+    return (
+      data.data?.jobsDashJobPostingDetailSectionsByCardSectionTypes?.elements?.[0]
+        ?.jobPostingDetailSection?.[0]?.jobApplicantInsightsUrn?.applicantCount || 0
+    );
+  } catch (error) {
+    console.error("Error fetching applicant count:", error);
+    return null;
+  }
+}
 
 /**
  * Fetches the job details for a specific job ID
@@ -26,10 +58,10 @@ async function fetchJobDetails(jobId) {
     return null;
   }
 
-  const url = `https://www.linkedin.com/voyager/api/jobs/jobPostings/${jobId}`;
-
+  // First, get views and original listed date
+  const detailsUrl = `https://www.linkedin.com/voyager/api/jobs/jobPostings/${jobId}`;
   try {
-    const response = await fetch(url, {
+    const detailsResponse = await fetch(detailsUrl, {
       method: "GET",
       headers: {
         accept: "application/vnd.linkedin.normalized+json+2.1",
@@ -39,16 +71,18 @@ async function fetchJobDetails(jobId) {
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
       },
-      credentials: "include",
     });
 
-    const data = await response.json();
+    const detailsData = await detailsResponse.json();
 
-    // Extract the applies count, views, and original listing date
+    // Then, get applicant count from the separate API
+    const applicantCount = await fetchApplicantCount(jobId);
+
+    // Return combined data
     return {
-      applies: data.data?.applies || 0,
-      views: data.data?.views || 0,
-      originalListedAt: data.data?.originalListedAt || null,
+      applies: applicantCount,
+      views: detailsData.data?.views || 0,
+      originalListedAt: detailsData.data?.originalListedAt || null,
     };
   } catch (error) {
     console.error("Error fetching job details:", error);
@@ -62,8 +96,7 @@ async function fetchJobDetails(jobId) {
 function getLimit() {
   return new Promise((resolve) => {
     chrome.storage.sync.get("limit", (result) => {
-      const limit = Number(result.limit) || DEFAULT_LIMIT;
-      resolve(limit);
+      resolve(Number(result.limit) || DEFAULT_LIMIT);
     });
   });
 }
@@ -99,7 +132,7 @@ function extractJobIdFromUrl(url) {
 function updateMetricsElement(element, details, limit) {
   const { applies, views, originalListedAt } = details;
 
-  // Common styles with improved visual design
+  // Common styles
   const commonStyle =
     "padding: 3px 8px; border-radius: 4px; display: inline-block; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.08);";
 
@@ -108,19 +141,19 @@ function updateMetricsElement(element, details, limit) {
   applicantElement.textContent = `${applies} applicants`;
 
   if (applies < limit) {
-    // Below limit styling - improved green with better readability
-    applicantElement.style.cssText = `${commonStyle} background-color: #e3f5e9; color: #0a662f; border: 1px solid #a8e0b8;`;
+    // Below limit styling
+    applicantElement.style.cssText = `${commonStyle} background-color: #e6f7e6; color: #006400; border: 1px solid #c3e6c3;`;
   } else {
-    // Above limit styling - improved red with better readability
-    applicantElement.style.cssText = `${commonStyle} background-color: #fbe9eb; color: #8e2c35; border: 1px solid #f4b8be;`;
+    // Above limit styling
+    applicantElement.style.cssText = `${commonStyle} background-color: #ffebeb; color: #cc0000; border: 1px solid #ffcccc;`;
   }
 
-  // Update view count with more visually distinct color
+  // Update view count
   const viewElement = element.querySelector(".view-count");
   viewElement.textContent = `${views} views`;
   viewElement.style.cssText = `${commonStyle} background-color: #e8f0fe; color: #1a56db; border: 1px solid #b6d1fc;`;
 
-  // Update listing date with improved color scheme
+  // Update listing date
   const dateElement = element.querySelector(".listing-date");
 
   if (originalListedAt) {
@@ -129,16 +162,13 @@ function updateMetricsElement(element, details, limit) {
     const daysAgo = Math.floor((now - listingDate) / (1000 * 60 * 60 * 24));
     dateElement.textContent = `${daysAgo}d ago`;
 
-    // Color coding based on age with improved contrast
-    if (daysAgo <= 3) {
-      // Fresh listing - crisp blue-green
-      dateElement.style.cssText = `${commonStyle} background-color: #e0f7fa; color: #006064; border: 1px solid #b2ebf2;`;
+    // Color coding based on age
+    if (daysAgo <= 1) {
+      dateElement.style.cssText = `${commonStyle} background-color: #e6f7e6; color: #006400; border: 1px solid #c3e6c3;`;
     } else if (daysAgo <= 7) {
-      // Recent listing - warm amber
-      dateElement.style.cssText = `${commonStyle} background-color: #fff8e1; color: #b5651d; border: 1px solid #ffe082;`;
+      dateElement.style.cssText = `${commonStyle} background-color: #fff8e1; color: #cc0000; border: 1px solid #ffcccc;;`;
     } else {
-      // Older listing - neutral gray
-      dateElement.style.cssText = `${commonStyle} background-color: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db;`;
+      dateElement.style.cssText = `${commonStyle} background-color: #ffebeb; color: #cc0000; border: 1px solid #ffcccc;;`;
     }
   } else {
     dateElement.textContent = "New";
@@ -147,13 +177,13 @@ function updateMetricsElement(element, details, limit) {
 }
 
 /**
- * Creates and styles the job metrics element with improved design
+ * Creates and styles the job metrics element
  */
 function createMetricsElement() {
   const element = document.createElement("div");
   element.className = "job-metrics-element";
-  element.style.fontSize = "13px"; // Slightly larger font
-  element.style.fontWeight = "500"; // Medium font weight
+  element.style.fontSize = "13px";
+  element.style.fontWeight = "500";
   element.style.padding = "4px 0";
   element.style.display = "flex";
   element.style.gap = "8px";
@@ -236,7 +266,6 @@ async function setupJobObserver() {
     let shouldProcess = false;
 
     for (const mutation of mutations) {
-      // Check if the changes affect the job list
       if (
         mutation.type === "childList" ||
         (mutation.type === "attributes" && mutation.target.closest(".scaffold-layout__list"))
@@ -251,6 +280,15 @@ async function setupJobObserver() {
     }
   });
 
+  function startObserver() {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+  }
+
   // Process immediately if DOM is loaded, otherwise wait for DOMContentLoaded
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
@@ -260,15 +298,6 @@ async function setupJobObserver() {
   } else {
     addMetricsToListings(limit);
     startObserver();
-  }
-
-  function startObserver() {
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["class"],
-    });
   }
 }
 
