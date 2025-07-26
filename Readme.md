@@ -1,8 +1,16 @@
-# LinkedIn Applicants Counter Extension
+# LinkedIn Job Insights Extension
 
-When you have LinkedIn premium you can see the applicant count for a job below the job description. It can get tiresome to scroll down for every job to see the applicant count. This extension will show the applicant count for the job you are currently viewing in the top right corner of the page.
+This Chrome Extension shows the Applicant Count, Job View, and Days since the job was posted on LinkedIn. This information is displayed in the job list sidebar when search for jobs on LinkedIn.
 
-You can even set custom limit for the applicant count. If the applicant count is greater than the limit, the count will be shown in red color. By default the limit is set to 300.
+You can set a custom limit for the applicant count. If the applicant count exceeds the limit, it will be highlighted in red. By default, the limit is set to 300.
+
+To view the applicant count, you will need to have a LinkedIn Premium account.
+
+## Features
+- Displays the applicant count, job view, and days since the job was posted. [Uses LinkedIn Premium features which counts apply when someone clicks on the apply button.]
+- Shows the view count of the job. [Uses LinkedIn API to get the view count of the job.]
+- Displays the number of days since the job was posted.[Uses LinkedIn API to get the job posted date.]
+
 
 ## Screenshots
 <div style="display: flex; justify-content: space-between;">
