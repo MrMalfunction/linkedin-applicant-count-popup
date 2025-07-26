@@ -6,8 +6,8 @@ You can even set custom limit for the applicant count. If the applicant count is
 
 ## Screenshots
 <div style="display: flex; justify-content: space-between;">
-  <img src="ApplicantsLessThanLimit.png" alt="Applicant Count less than limit" title="Applicant count less than limit" width="48%">
-  <img src="ApplicantsGreaterThanLimit.png" alt="Applicant Count greater than limit" title="Applicant count greater than limit" width="48%">
+  <img src="Screenshot 1.png" alt="Applicant Count less than limit" title="Applicant count less than limit" width="48%">
+  <img src="Screenshot 2.png" alt="Applicant Count greater than limit" title="Applicant count greater than limit" width="48%">
 </div>
 
 ## Chrome Webstore Installation
